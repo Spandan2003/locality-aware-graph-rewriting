@@ -1,0 +1,9 @@
+torch
+torch_geometric
+ogb
+rdkit-pypi
+performer-pytorch
+git+https://github.com/vijaydwivedi75/lrgb.git
+
+# Run this also: pip install torch-scatter -f https://data.pyg.org/whl/torch-$(python -c "import torch; print(torch.__version__.split('+')[0])").html
+# torch-scatter is a dependency of torch-geometric, but it is not always installed automatically.
