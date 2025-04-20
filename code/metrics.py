@@ -20,7 +20,7 @@ def compute_metrics(y_true, y_pred, dataset_name):
             'average_precision': avg_precision
         }
 
-    elif dataset_name == "stuct":
+    elif dataset_name == "struct":
         # Mean Absolute Error (MAE) for -stuct dataset
         mae = mean_absolute_error(y_true, y_pred)
         return {

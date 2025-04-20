@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import average_precision_score
 
 # ------------------------- Train Loop -------------------------
 def train(model, device, train_loader, optimizer):
@@ -19,7 +20,6 @@ def train(model, device, train_loader, optimizer):
         batch = batch.to(device)
         optimizer.zero_grad()
         # Changed from out = model(batch) to out = model(batch.x, batch.edge_index, batch.batch)
-        # This is to ensure that the model can handle the batch structure correctly.
         out = model(batch)         # out.x shape: [num_nodes, num_classes]
         pooled_out = global_mean_pool(out.x, batch.batch)  # shape: [batch_size, num_classes]
         loss = F.cross_entropy(pooled_out, batch.y)
@@ -28,8 +28,7 @@ def train(model, device, train_loader, optimizer):
         total_loss += loss.item()
     return total_loss / len(train_loader)
 
-# ------------------------- Validation Loop -------------------------
-def validate(model, device, val_loader):
+def validate(model, device, val_loader, dataset_name):
     model.eval()
     all_preds = []
     all_labels = []
@@ -38,16 +37,23 @@ def validate(model, device, val_loader):
         for batch in tqdm(val_loader, desc="Validation"):
             batch = batch.to(device)
             out = model(batch)
-            preds = out.x.argmax(dim=1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(batch.y.cpu().numpy())
+            # Apply global mean pooling to aggregate node-level predictions into graph-level predictions
+            pooled_out = global_mean_pool(out.x, batch.batch)  # pooled_out: shape [batch_size, num_classes]
 
-    # Calculate metrics (accuracy for now)
-    metrics = compute_metrics(all_labels, all_preds, config['dataset']['name'])
+            # Use softmax to get probabilities (not class labels)
+            preds = pooled_out.softmax(dim=1)  # Apply softmax to get probabilities
+            all_preds.extend(preds.cpu().numpy())  # Collect probabilities for all graphs
+            all_labels.extend(batch.y.cpu().numpy())  # Collect true labels for all graphs
+
+    # Ensure that the lengths of predictions and labels are consistent
+    print(f"Total predictions: {len(all_preds)}, Total labels: {len(all_labels)}")
+
+    # Compute metrics
+    metrics = compute_metrics(all_labels, all_preds, dataset_name)
     return metrics
 
-# ------------------------- Test Loop -------------------------
-def test(model, device, test_loader):
+
+def test(model, device, test_loader, dataset_name):
     model.eval()
     all_preds = []
     all_labels = []
@@ -56,14 +62,23 @@ def test(model, device, test_loader):
         for batch in tqdm(test_loader, desc="Testing"):
             batch = batch.to(device)
             out = model(batch)
-            preds = out.x.argmax(dim=1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(batch.y.cpu().numpy())
+            # Apply global mean pooling to aggregate node-level predictions into graph-level predictions
+            pooled_out = global_mean_pool(out.x, batch.batch)  # pooled_out: shape [batch_size, num_classes]
 
-    # Calculate metrics (accuracy for now)
-    metrics = compute_metrics(all_labels, all_preds, config['dataset']['name'])
+            # Use softmax to get probabilities (not class labels)
+            preds = pooled_out.softmax(dim=1)  # Apply softmax to get probabilities
+            all_preds.extend(preds.cpu().numpy())  # Collect probabilities for all graphs
+            all_labels.extend(batch.y.cpu().numpy())  # Collect true labels for all graphs
+
+    # Ensure that the lengths of predictions and labels are consistent
+    print(f"Total predictions: {len(all_preds)}, Total labels: {len(all_labels)}")
+
+    # Compute metrics
+    metrics = compute_metrics(all_labels, all_preds, dataset_name)
     return metrics
 
+
+# ------------------------- Start the Experiment -------------------------
 # ------------------------- Start the Experiment -------------------------
 def start():
     # Load configuration from config.py
@@ -102,28 +117,34 @@ def start():
     # Training Loop
     for epoch in range(config['train']['epochs']):
         print(f"\nEpoch {epoch + 1}/{config['train']['epochs']}")
-        
+
         # Training
         train_loss = train(model, config['device'], train_loader, optimizer)
         print(f"Train Loss: {train_loss:.4f}")
 
         # Validation
-        val_metrics = validate(model, config['device'], val_loader)
+        val_metrics = validate(model, config['device'], val_loader, dataset_name)
         print(f"Validation Metrics: {val_metrics}")
 
         # Save the best model based on validation performance
         history['train_loss'].append(train_loss)
         history['val_metrics'].append(val_metrics)
 
-        if best_val_metrics is None or val_metrics['accuracy'] > best_val_metrics['accuracy']:
-            best_val_metrics = val_metrics
-            best_model_state = model.state_dict()
+        # Handle different metrics for different datasets
+        if 'accuracy' in val_metrics:
+            if best_val_metrics is None or val_metrics['accuracy'] > best_val_metrics['accuracy']:
+                best_val_metrics = val_metrics
+                best_model_state = model.state_dict()
+        elif 'average_precision' in val_metrics:
+            if best_val_metrics is None or val_metrics['average_precision'] > best_val_metrics['average_precision']:
+                best_val_metrics = val_metrics
+                best_model_state = model.state_dict()
     
     # Load best model
     model.load_state_dict(best_model_state)
 
     # Test the model
-    test_metrics = test(model, config['device'], test_loader)
+    test_metrics = test(model, config['device'], test_loader, dataset_name)
     print(f"\nTest Metrics: {test_metrics}")
 
     # ------------------------- Save Checkpoint -------------------------
@@ -132,7 +153,7 @@ def start():
     # ------------------------- Plot Training History -------------------------
     plt.figure(figsize=(10, 6))
     plt.plot(history['train_loss'], label='Train Loss')
-    plt.plot([metrics['accuracy'] for metrics in history['val_metrics']], label='Validation Accuracy')
+    plt.plot([metrics.get('accuracy', 0) for metrics in history['val_metrics']], label='Validation Accuracy')
     plt.xlabel('Epochs')
     plt.ylabel('Metric')
     plt.legend()
@@ -140,6 +161,7 @@ def start():
     plt.show()
 
     return best_val_metrics, test_metrics
+
 
 if __name__ == "__main__":
     start()

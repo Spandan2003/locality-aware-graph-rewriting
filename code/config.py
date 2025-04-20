@@ -3,7 +3,7 @@ import torch
 # -------------------- Hyperparameters for Training --------------------
 train_hyperparameters = {
     'batch_size': 64,                  # Size of each training batch
-    'epochs': 2,                     # Total number of training epochs
+    'epochs': 10,                     # Total number of training epochs
     'learning_rate': 0.001,            # Learning rate for optimizer
     'weight_decay': 5e-4,              # Weight decay (L2 regularization)
     'dropout': 0.5,                    # Dropout rate used in GatedGCN layers

@@ -138,7 +138,8 @@ class LRGBDataset(InMemoryDataset):
 
         super().__init__(root, transform, pre_transform, pre_filter)
         path = osp.join(self.processed_dir, f'{split}.pt')
-        self.data, self.slices = torch.load(path)
+        # Change weightsonly to False to load the entire dataset
+        self.data, self.slices = torch.load(path, weights_only=False)
 
     @property
     def raw_dir(self) -> str:
