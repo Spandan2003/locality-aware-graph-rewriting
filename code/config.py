@@ -3,14 +3,13 @@ import torch
 # -------------------- Hyperparameters for Training --------------------
 train_hyperparameters = {
     'batch_size': 64,                  # Size of each training batch
-    'epochs': 10,                     # Total number of training epochs
+    'epochs': 50,                     # Total number of training epochs
     'learning_rate': 0.001,            # Learning rate for optimizer
     'weight_decay': 5e-4,              # Weight decay (L2 regularization)
     'dropout': 0.5,                    # Dropout rate used in GatedGCN layers
     'early_stopping_patience': 10,     # Number of epochs to wait for improvement in validation
-    # 'rewiring': 'NoRewiring',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
+    # 'rewiring': 'RandomRewiring',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
     'rewiring': 'LASER',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
-    # 'rewiring': 'NoRewiring',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
 }
 
 # -------------------- Dataset-specific Configurations --------------------

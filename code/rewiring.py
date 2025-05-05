@@ -93,23 +93,21 @@ class LaserGlobalTransform:
 
         edge_index, edge_weights = self._create_rewirings(g_nx)
 
-        if hasattr(g, "edge_attr"):
+        if hasattr(g, "edge_attr") and g.edge_attr is not None:
             to_add = edge_weights.shape[0] - g.edge_attr.shape[0]
-            # assert to_add >= 0
-            print(to_add.shape)
+            print(f"to_add: {to_add}")
 
             if to_add > 0:
-                virtual_attrs = torch.full((to_add, ), 0.1).unsqueeze(-1)
-                print(g.edge_attr.shape, virtual_attrs.shape)
-                edge_attr = torch.cat((g.edge_attr, virtual_attrs),  dim=0)
+                feature_dim = g.edge_attr.shape[1]
+                virtual_attrs = torch.full((to_add, feature_dim), 0.1)
+                # print(f"g.edge_attr shape: {g.edge_attr.shape}, virtual_attrs shape: {virtual_attrs.shape}")
 
+                edge_attr = torch.cat((g.edge_attr, virtual_attrs), dim=0)
                 g.edge_attr = edge_attr
+        else:
+            # If edge_attr is missing, initialize from scratch
+            g.edge_attr = torch.full((edge_weights.shape[0], 1), 0.1)
 
-                # # TODO can use GCN style weights here if we want to normalize
-                # g.edge_attr = torch.full(edge_weights.shape[0], 0.1).unsqueeze(-1)
-
-        g.edge_index, g.edge_weights = edge_index, edge_weights
-        
         return g
 
     def _create_rewirings(self, g):

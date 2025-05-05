@@ -16,85 +16,12 @@ from torch_geometric.data import (
 from torch_geometric.io import read_tu_data
 
 class LRGBDataset(InMemoryDataset):
-    r"""The `"Long Range Graph Benchmark (LRGB)"
+    r"""The `"Long Range Graph Benchmark (LRGB)"`
     <https://arxiv.org/abs/2206.08164>`_
     datasets which is a collection of 5 graph learning datasets with tasks
     that are based on long-range dependencies in graphs. See the original
     `source code <https://github.com/vijaydwivedi75/lrgb>`_ for more details
     on the individual datasets.
-
-    +------------------------+-------------------+----------------------+
-    | Dataset                | Domain            | Task                 |
-    +========================+===================+======================+
-    | :obj:`PascalVOC-SP`    | Computer Vision   | Node Classification  |
-    +------------------------+-------------------+----------------------+
-    | :obj:`COCO-SP`         | Computer Vision   | Node Classification  |
-    +------------------------+-------------------+----------------------+
-    | :obj:`PCQM-Contact`    | Quantum Chemistry | Link Prediction      |
-    +------------------------+-------------------+----------------------+
-    | :obj:`Peptides-func`   | Chemistry         | Graph Classification |
-    +------------------------+-------------------+----------------------+
-    | :obj:`Peptides-struct` | Chemistry         | Graph Regression     |
-    +------------------------+-------------------+----------------------+
-
-    Args:
-        root (str): Root directory where the dataset should be saved.
-        name (str): The name of the dataset (one of :obj:`"PascalVOC-SP"`,
-            :obj:`"COCO-SP"`, :obj:`"PCQM-Contact"`, :obj:`"Peptides-func"`,
-            :obj:`"Peptides-struct"`)
-        split (str, optional): If :obj:`"train"`, loads the training dataset.
-            If :obj:`"val"`, loads the validation dataset.
-            If :obj:`"test"`, loads the test dataset.
-            (default: :obj:`"train"`)
-        transform (callable, optional): A function/transform that takes in an
-            :obj:`torch_geometric.data.Data` object and returns a transformed
-            version. The data object will be transformed before every access.
-            (default: :obj:`None`)
-        pre_transform (callable, optional): A function/transform that takes in
-            an :obj:`torch_geometric.data.Data` object and returns a
-            transformed version. The data object will be transformed before
-            being saved to disk. (default: :obj:`None`)
-        pre_filter (callable, optional): A function that takes in an
-            :obj:`torch_geometric.data.Data` object and returns a boolean
-            value, indicating whether the data object should be included in the
-            final dataset. (default: :obj:`None`)
-
-    **STATS:**
-
-    .. list-table::
-        :widths: 15 10 10 10 10
-        :header-rows: 1
-
-        * - Name
-          - #graphs
-          - #nodes
-          - #edges
-          - #classes
-        * - PascalVOC-SP
-          - 11,355
-          - ~479.40
-          - ~2,710.48
-          - 21
-        * - COCO-SP
-          - 123,286
-          - ~476.88
-          - ~2,693.67
-          - 81
-        * - PCQM-Contact
-          - 529,434
-          - ~30.14
-          - ~61.09
-          - 1
-        * - Peptides-func
-          - 15,535
-          - ~150.94
-          - ~307.30
-          - 10
-        * - Peptides-struct
-          - 15,535
-          - ~150.94
-          - ~307.30
-          - 11
     """
 
     names = [
@@ -132,40 +59,38 @@ class LRGBDataset(InMemoryDataset):
             pre_transform: Optional[Callable] = None,
             pre_filter: Optional[Callable] = None,
         ):
-            self.name = name.lower()
-            assert self.name in self.names
-            assert split in ['train', 'val', 'test']
+        self.name = name.lower()
+        assert self.name in self.names
+        assert split in ['train', 'val', 'test']
 
-            super().__init__(root, transform, pre_transform, pre_filter)
+        super().__init__(root, transform, pre_transform, pre_filter)
 
-            
+        if pre_transform is not None:
+            # Include metadata based on pre_transform
+            transform_name = getattr(pre_transform, '__name__', pre_transform.__class__.__name__)
+            self._processed_dir = f"{self.processed_dir}_{transform_name}"
+        else:
+            self._processed_dir = self.processed_dir
 
-            if pre_transform is not None:
-                # Define processed_dir directly in __init__
-                self.processed_dir = osp.join(self.root, self.name, "processed")
-                # Include metadata based on pre_transform
-                metadata = f"_{self.pre_transform.__self__}"
-                self.processed_dir += metadata
+        # Path to the processed data
+        path = osp.join(self.processed_dir, f'{split}.pt')
 
-            # Path to the processed data
-            path = osp.join(self.processed_dir, f'{split}.pt')
+        # Load the dataset
+        self.data, self.slices = torch.load(path, weights_only=False)
 
-            # Load the dataset
-            self.data, self.slices = torch.load(path, weights_only=False)
-    
     @property
     def raw_dir(self) -> str:
         return osp.join(self.root, self.name, 'raw')
-    # Comment out to run with rewiring. Needs to be fixed
+
     @property
-    def processed_dir(self) -> str:
-        name = f"processed"
-        metadata = (
-            f"_{self.pre_transform.__self__}" if self.pre_transform is not None else ""
-        )
-        name += metadata
+    def processed_dir(self):
+        # Dynamically return the processed_dir path based on pre_transform
+        name = "processed"
+        if self.pre_transform is not None:
+            transform_name = getattr(self.pre_transform, '__name__', self.pre_transform.__class__.__name__)
+            name += f"_{transform_name}"
         return osp.join(self.root, self.name, name)
-    
+
     @property
     def raw_file_names(self) -> List[str]:
         if self.name.split('-')[1] == 'sp':
@@ -210,28 +135,11 @@ class LRGBDataset(InMemoryDataset):
                 data_list = []
                 for graph in tqdm(graphs, desc=f'Processing {split} dataset'):
                     if self.name.split('-')[1] == 'sp':
-                        """
-                        PascalVOC-SP and COCO-SP
-                        Each `graph` is a tuple (x, edge_attr, edge_index, y)
-                            Shape of x : [num_nodes, 14]
-                            Shape of edge_attr : [num_edges, 2]
-                            Shape of edge_index : [2, num_edges]
-                            Shape of y : [num_nodes]
-                        """
                         x = graph[0].to(torch.float)
                         edge_attr = graph[1].to(torch.float)
                         edge_index = graph[2]
                         y = torch.LongTensor(graph[3])
                     elif self.name.split('-')[0] == 'peptides':
-                        """
-                        Peptides-func and Peptides-struct
-                        Each `graph` is a tuple (x, edge_attr, edge_index, y)
-                            Shape of x : [num_nodes, 9]
-                            Shape of edge_attr : [num_edges, 3]
-                            Shape of edge_index : [2, num_edges]
-                            Shape of y : [1, 10] for Peptides-func,  or
-                                         [1, 11] for Peptides-struct
-                        """
                         x = graph[0]
                         edge_attr = graph[1]
                         edge_index = graph[2]
@@ -255,6 +163,144 @@ class LRGBDataset(InMemoryDataset):
 
                 torch.save(self.collate(data_list),
                            osp.join(self.processed_dir, f'{split}.pt'))
+
+    def label_remap_coco(self):
+        # Util function for name 'COCO-SP'
+        original_label_idx = [
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19,
+            20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+            40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
+            58, 59, 60, 61, 62, 63, 64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78,
+            79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90
+        ]
+
+        label_map = {}
+        for i, key in enumerate(original_label_idx):
+            label_map[key] = i
+
+        return label_map
+
+    def process_pcqm_contact(self):
+        for split in ['train', 'val', 'test']:
+            with open(osp.join(self.raw_dir, f'{split}.pt'), 'rb') as f:
+                graphs = torch.load(f)
+
+            data_list = []
+            for graph in tqdm(graphs, desc=f'Processing {split} dataset'):
+                x = graph[0]
+                edge_attr = graph[1]
+                edge_index = graph[2]
+                edge_label_index = graph[3]
+                edge_label = graph[4]
+
+                data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr,
+                            edge_label_index=edge_label_index,
+                            edge_label=edge_label)
+
+                if self.pre_filter is not None and not self.pre_filter(data):
+                    continue
+
+                if self.pre_transform is not None:
+                    data = self.pre_transform(data)
+
+                data_list.append(data)
+
+            torch.save(self.collate(data_list),
+                       osp.join(self.processed_dir, f'{split}.pt'))
+
+class TUDataset(InMemoryDataset):
+    r"""A variety of graph kernel benchmark datasets, *e.g.* "IMDB-BINARY",
+    "REDDIT-BINARY" or "PROTEINS", collected from the `TU Dortmund University
+    <https://chrsmrrs.github.io/datasets>`_.
+    """
+
+    url = "https://www.chrsmrrs.com/graphkerneldatasets"
+    cleaned_url = (
+        "https://raw.githubusercontent.com/nd7141/" "graph_datasets/master/datasets"
+    )
+
+    def __init__(
+        self,
+        root: str,
+        name: str,
+        transform: Optional[Callable] = None,
+        pre_transform: Optional[Callable] = None,
+        pre_filter: Optional[Callable] = None,
+        use_node_attr: bool = False,
+        use_edge_attr: bool = False,
+        cleaned: bool = False,
+    ):
+        self.name = name
+        self.cleaned = cleaned
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+        out = torch.load(self.processed_paths[0])
+        if not isinstance(out, tuple) or len(out) != 3:
+            raise RuntimeError(
+                "The 'data' object was created by an older version of PyG. "
+                "If this error occurred while loading an already existing "
+                "dataset, remove the 'processed/' directory in the dataset's "
+                "root folder and try again."
+            )
+        self.data, self.slices, self.sizes = out
+
+        if self.data.x is not None and not use_node_attr:
+            num_node_attributes = self.num_node_attributes
+            self.data.x = self.data.x[:, num_node_attributes:]
+        if self.data.edge_attr is not None and not use_edge_attr:
+            num_edge_attributes = self.num_edge_attributes
+            self.data.edge_attr = self.data.edge_attr[:, num_edge_attributes:]
+
+    @property
+    def raw_dir(self) -> str:
+        name = f'raw{"_cleaned" if self.cleaned else ""}'
+        return osp.join(self.root, self.name, name)
+
+    @property
+    def processed_dir(self) -> str:
+        return osp.join(self.root, self.name, "processed")
+
+        # Add an internal property for the modified directory
+    @property
+    def modified_processed_dir(self):
+        return self._processed_dir if hasattr(self, '_processed_dir') else self.processed_dir
+    @property
+    def raw_file_names(self) -> List[str]:
+        return [
+            f"{self.name}_train.graph",
+            f"{self.name}_test.graph",
+            f"{self.name}_val.graph",
+        ]
+
+    @property
+    def processed_file_names(self) -> List[str]:
+        return [
+            f"{self.name}_train.graph",
+            f"{self.name}_test.graph",
+            f"{self.name}_val.graph",
+        ]
+
+    def download(self):
+        path = download_url(self.url, self.root)
+        extract_zip(path, self.root)
+        os.unlink(path)
+
+    def process(self):
+        """Process the dataset into torch_geometric format"""
+        for split in ['train', 'val', 'test']:
+            path = osp.join(self.raw_dir, f"{self.name}_{split}.graph")
+            graphs = read_tu_data(path)
+
+            data_list = []
+            for graph in graphs:
+                edge_index = graph[0]
+                x = graph[1]
+                y = graph[2]
+                data = Data(x=x, edge_index=edge_index, y=y)
+                data_list.append(data)
+
+            torch.save(self.collate(data_list), osp.join(self.processed_dir, f"{self.name}_{split}.pt"))
+
 
     def label_remap_coco(self):
         # Util function for name 'COCO-SP'
