@@ -124,27 +124,39 @@ class LRGBDataset(InMemoryDataset):
     }
 
     def __init__(
-        self,
-        root: str,
-        name: str,
-        split: str = "train",
-        transform: Optional[Callable] = None,
-        pre_transform: Optional[Callable] = None,
-        pre_filter: Optional[Callable] = None,
-    ):
-        self.name = name.lower()
-        assert self.name in self.names
-        assert split in ['train', 'val', 'test']
+            self,
+            root: str,
+            name: str,
+            split: str = "train",
+            transform: Optional[Callable] = None,
+            pre_transform: Optional[Callable] = None,
+            pre_filter: Optional[Callable] = None,
+        ):
+            self.name = name.lower()
+            assert self.name in self.names
+            assert split in ['train', 'val', 'test']
 
-        super().__init__(root, transform, pre_transform, pre_filter)
-        path = osp.join(self.processed_dir, f'{split}.pt')
-        # Change weightsonly to False to load the entire dataset
-        self.data, self.slices = torch.load(path, weights_only=False)
+            super().__init__(root, transform, pre_transform, pre_filter)
 
+            
+
+            if pre_transform is not None:
+                # Define processed_dir directly in __init__
+                self.processed_dir = osp.join(self.root, self.name, "processed")
+                # Include metadata based on pre_transform
+                metadata = f"_{self.pre_transform.__self__}"
+                self.processed_dir += metadata
+
+            # Path to the processed data
+            path = osp.join(self.processed_dir, f'{split}.pt')
+
+            # Load the dataset
+            self.data, self.slices = torch.load(path, weights_only=False)
+    
     @property
     def raw_dir(self) -> str:
         return osp.join(self.root, self.name, 'raw')
-
+    # Comment out to run with rewiring. Needs to be fixed
     @property
     def processed_dir(self) -> str:
         name = f"processed"
@@ -153,7 +165,7 @@ class LRGBDataset(InMemoryDataset):
         )
         name += metadata
         return osp.join(self.root, self.name, name)
-
+    
     @property
     def raw_file_names(self) -> List[str]:
         if self.name.split('-')[1] == 'sp':

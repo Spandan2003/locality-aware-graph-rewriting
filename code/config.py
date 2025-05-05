@@ -8,6 +8,9 @@ train_hyperparameters = {
     'weight_decay': 5e-4,              # Weight decay (L2 regularization)
     'dropout': 0.5,                    # Dropout rate used in GatedGCN layers
     'early_stopping_patience': 10,     # Number of epochs to wait for improvement in validation
+    # 'rewiring': 'NoRewiring',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
+    'rewiring': 'LASER',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
+    # 'rewiring': 'NoRewiring',          # Rewiring strategy (NoRewiring, RandomRewiring, etc.)
 }
 
 # -------------------- Dataset-specific Configurations --------------------
@@ -27,8 +30,12 @@ dataset_config = {
         'root': './data',
         'dataset_type': 'lrgb',       # Dataset type (LRGB or TU)
         'name': 'peptides-struct',    # Dataset name
-        'num_classes': 2,             # Number of classes for classification
-        'num_features': 9,            # Number of features per node (example)
+        'dim_in': 9,              # Input feature dimension (example for peptides-func)
+        'dim_edge': 3,            # Edge feature dimension (example for peptides-func)
+        'dim_out': 11,             # Output feature dimension (example for peptides-func)
+        'num_classes': 11,             # Number of classes for classification
+        'num_features': 9,           # Number of features per node (example)
+        'best_metric': 'mae',  # Metric to use for early stopping
     },
     'pcqm-contact': {                # Example of a dataset from the LRGB or TU datasets
         'root': './data',
@@ -63,6 +70,7 @@ config = {
     'model': gatedgcn_config,             # Configuration for the model (GatedGCN)
     'train': train_hyperparameters,       # Training hyperparameters (batch size, lr, etc.)
     'dataset': dataset_config['peptides-func'],           # Dataset configuration (paths, num classes, etc.)
+    # 'dataset': dataset_config['peptides-struct'],           # Dataset configuration (paths, num classes, etc.)
 }
 
 # -------------------- Device Configuration --------------------
