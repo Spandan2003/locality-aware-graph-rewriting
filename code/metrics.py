@@ -15,12 +15,15 @@ def compute_metrics(y_true, y_pred, dataset_name):
     """
     if dataset_name == "peptides-func":
         # Average Precision (AP) for peptides-func dataset
+        # print("y_true shape:", len(y_true), y_true[0].shape)
+        # print("y_pred shape:", len(y_pred), y_pred[0].shape)
+
         avg_precision = average_precision_score(y_true, y_pred)
         return {
             'average_precision': avg_precision
         }
 
-    elif dataset_name == "struct":
+    elif dataset_name == "peptides-struct":
         # Mean Absolute Error (MAE) for -stuct dataset
         mae = mean_absolute_error(y_true, y_pred)
         return {

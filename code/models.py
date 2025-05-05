@@ -10,6 +10,7 @@ from torch_geometric.graphgym.config import cfg
 from torch_geometric.graphgym.models.gnn import FeatureEncoder, GNNPreMP
 from torch_geometric.graphgym.register import register_network, register_layer
 
+
 class GatedGCNLayer(pyg_nn.conv.MessagePassing):
     """
         GatedGCN layer
@@ -308,7 +309,7 @@ class CustomGNN(nn.Module):
     instead of relying on torch_geometric.graphgym.config.cfg
     """
 
-    def __init__(self, dim_in, dim_out, model_cfg):
+    def __init__(self, dim_in, dim_edge, dim_out, model_cfg):
         super().__init__()
         self.encoder = FeatureEncoder(dim_in)
         dim_in = self.encoder.dim_in
@@ -359,17 +360,17 @@ class CustomGNN(nn.Module):
         if hasattr(batch, 'edge_attr') and batch.edge_attr is not None:
             batch.edge_attr = batch.edge_attr.float()
 
-        # print("Input batch x shape:", batch.x.shape)
+        # print("Input batch x shape:", batch)
 
         # Apply encoder
         batch = self.encoder(batch)
-        # print("Encoded batch x shape:", batch.x.shape)
+        # print("Encoded batch x shape:", batch)
 
         # Pre-message-passing layers (if any)
         if self.has_pre_mp:
             batch = self.pre_mp(batch)
 
-        # print("has_pre_mp batch x shape:", batch.x.shape)
+        # print("has_pre_mp batch x shape:", batch)
 
         # # Message passing layers
         # i = 1
@@ -382,6 +383,10 @@ class CustomGNN(nn.Module):
             batch = conv(batch)
 
         # Final head
-        out = batch
-        out.x = self.post_mp(out.x)
+        # out = batch
+        # out.x = self.post_mp(out.x)# .mean(dim=0)
+
+        graph_repr = pyg_nn.global_mean_pool(batch.x, batch.batch)
+        out = self.post_mp(graph_repr) 
+        # print("Output batch x shape:", out)
         return out

@@ -16,8 +16,26 @@ dataset_config = {
         'root': './data',             # Root directory where dataset is stored
         'dataset_type': 'lrgb',       # Dataset type (LRGB or TU)
         'name': 'peptides-func',      # Dataset name
-        'num_classes': 2,             # Number of classes for classification
+        'dim_in': 9,              # Input feature dimension (example for peptides-func)
+        'dim_edge': 3,            # Edge feature dimension (example for peptides-func)
+        'dim_out': 10,             # Output feature dimension (example for peptides-func)
+        'num_classes': 10,             # Number of classes for classification
         'num_features': 9,           # Number of features per node (example)
+        'best_metric': 'average_precision',  # Metric to use for early stopping
+    },
+    'peptides-struct': {              # Another example of a dataset from the LRGB or TU datasets
+        'root': './data',
+        'dataset_type': 'lrgb',       # Dataset type (LRGB or TU)
+        'name': 'peptides-struct',    # Dataset name
+        'num_classes': 2,             # Number of classes for classification
+        'num_features': 9,            # Number of features per node (example)
+    },
+    'pcqm-contact': {                # Example of a dataset from the LRGB or TU datasets
+        'root': './data',
+        'dataset_type': 'lrgb',       # Dataset type (LRGB or TU)
+        'name': 'pcqm-contact',     # Dataset name
+        'num_classes': 2,             # Number of classes for classification
+        'num_features': 9,            # Number of features per node (example)
     },
     'PROTEINS': {                     # Example of a TU dataset
         'root': './data',
@@ -26,21 +44,6 @@ dataset_config = {
         'num_classes': 2,             # Number of classes (binary classification)
         'num_features': 3,            # Feature dimension (example for PROTEINS)
     },
-    # Additional datasets can be added here
-    'CORA': {
-        'root': './data',
-        'dataset_type': 'tu',         # Type of dataset (TU)
-        'name': 'CORA',               # Dataset name
-        'num_classes': 7,             # CORA has 7 classes
-        'num_features': 1433,         # CORA has 1433 node features
-    },
-    'CITATION': {
-        'root': './data',
-        'dataset_type': 'tu',         # Type of dataset (TU)
-        'name': 'CITATION',           # Dataset name
-        'num_classes': 3,             # Number of classes (binary classification)
-        'num_features': 3703,         # Feature dimension (example for CITATION)
-    }
 }
 
 # -------------------- GatedGCN Model Config --------------------

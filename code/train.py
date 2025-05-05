@@ -21,8 +21,9 @@ def train(model, device, train_loader, optimizer):
         # Changed from out = model(batch) to out = model(batch.x, batch.edge_index, batch.batch)
         # This is to ensure that the model can handle the batch structure correctly.
         out = model(batch)         # out.x shape: [num_nodes, num_classes]
-        pooled_out = global_mean_pool(out.x, batch.batch)  # shape: [batch_size, num_classes]
-        loss = F.cross_entropy(pooled_out, batch.y)
+        # pooled_out = global_mean_pool(out.x, batch.batch)  # shape: [batch_size, num_classes]
+        # loss = F.cross_entropy(pooled_out, batch.y)
+        loss = F.cross_entropy(out, batch.y)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
@@ -38,7 +39,8 @@ def validate(model, device, val_loader):
         for batch in tqdm(val_loader, desc="Validation"):
             batch = batch.to(device)
             out = model(batch)
-            preds = out.x.argmax(dim=1)
+            # preds = out.argmax(dim=1)
+            preds = F.softmax(out, dim=1)
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(batch.y.cpu().numpy())
 
@@ -56,7 +58,8 @@ def test(model, device, test_loader):
         for batch in tqdm(test_loader, desc="Testing"):
             batch = batch.to(device)
             out = model(batch)
-            preds = out.x.argmax(dim=1)
+            preds = out.argmax(dim=1)
+            preds = F.softmax(out, dim=1)
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(batch.y.cpu().numpy())
 
@@ -88,7 +91,7 @@ def start():
     test_loader = DataLoader(test_dataset, batch_size=config['train']['batch_size'], shuffle=False)
     
     # Initialize Model
-    model = CustomGNN(dim_in=train_dataset.num_features, dim_out=train_dataset.num_classes, model_cfg=config['model']).to(config['device'])
+    model = CustomGNN(dim_in=config['dataset']['dim_in'], dim_edge=config['dataset']['dim_edge'] ,dim_out=config['dataset']['dim_out'], model_cfg=config['model']).to(config['device'])
     model.build_conv_model(model_name)
     
     # Initialize Optimizer
@@ -115,7 +118,7 @@ def start():
         history['train_loss'].append(train_loss)
         history['val_metrics'].append(val_metrics)
 
-        if best_val_metrics is None or val_metrics['accuracy'] > best_val_metrics['accuracy']:
+        if best_val_metrics is None or val_metrics[config['dataset']['best_metric']] > best_val_metrics[config['dataset']['best_metric']]:
             best_val_metrics = val_metrics
             best_model_state = model.state_dict()
     
@@ -132,7 +135,7 @@ def start():
     # ------------------------- Plot Training History -------------------------
     plt.figure(figsize=(10, 6))
     plt.plot(history['train_loss'], label='Train Loss')
-    plt.plot([metrics['accuracy'] for metrics in history['val_metrics']], label='Validation Accuracy')
+    plt.plot([metrics[config['dataset']['best_metric']] for metrics in history['val_metrics']], label=f'Validation Accuracy({config['dataset']['best_metric']})')
     plt.xlabel('Epochs')
     plt.ylabel('Metric')
     plt.legend()
